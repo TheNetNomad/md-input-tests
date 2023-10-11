@@ -1,3 +1,13 @@
+The meat and potatoes of this code is based on examples on plutiedev.com.
+The FAQ there states:
+
+Q: Can I use your code snippets in my game?
+A: Do whatever you want with the code snippets in this site. 
+
+I claim no ownership over materials borrowed from that site, which
+is the bulk of the assembler code. The remaining BASIC glue logic I 
+wrote is licensed as follows:
+
 This is free and unencumbered software released into the public domain.
 
 Anyone is free to copy, modify, publish, use, compile, sell, or
