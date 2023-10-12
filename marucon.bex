@@ -1,7 +1,7 @@
 	option explicit
 	option title, "MARUCON TEST"
-  ;assembler code adapted from https://plutiedev.com/
- 
+	;assembler code adapted from https://plutiedev.com/
+	
 	DIM MARUCONBUFFER AS INTEGER
 	DIM MARUCONBUFFER1 AS INTEGER
 	DIM MARUCONBUFFER2 AS INTEGER
@@ -107,7 +107,7 @@ ReadMarucon:
     
     ; Now loop through all nibbles
     ; (the -1 is because of DBF)
-    moveq   #16-1, d0
+    moveq   #15-1, d0
 @Loop:
     
     ; Tell macuron to send next nibble
