@@ -1,0 +1,168 @@
+	option explicit
+	option title, "MARUCON TEST"
+  ;assembler code adapted from https://plutiedev.com/
+ 
+	DIM MARUCONBUFFER AS INTEGER
+	DIM MARUCONBUFFER1 AS INTEGER
+	DIM MARUCONBUFFER2 AS INTEGER
+	DIM MARUCONBUFFER3 AS INTEGER
+	DIM MARUCONBUFFER4 AS INTEGER
+	DIM MARUCONBUFFER5 AS INTEGER
+	DIM MARUCONBUFFER6 AS INTEGER
+	DIM MARUCONBUFFER7 AS INTEGER
+	DIM MARUCONBUFFER8 AS INTEGER
+	DIM MARUCONBUFFER9 AS INTEGER
+	
+	DIM RES AS INTEGER
+	DIM TIME AS INTEGER
+	DIM X AS INTEGER
+	DIM Y AS INTEGER
+	DIM ROW1 AS INTEGER
+	DIM ROW2 AS INTEGER
+	DIM ROW3 AS INTEGER 
+	DIM DPAD AS INTEGER
+	DIM XH AS INTEGER
+	DIM XL AS INTEGER
+	DIM YH AS INTEGER 
+	DIM YL AS INTEGER
+	DIM SPRITE AS INTEGER
+	
+	asm
+IoCtrl1: equ $A10009   ; 1P control port
+IoCtrl2: equ $A1000B   ; 2P control port
+IoData1: equ $A10003   ; 1P data port
+IoData2: equ $A10005   ; 2P data port
+		
+Z80Ram:     equ $A00000  ; Where Z80 RAM starts
+Z80BusReq:  equ $A11100  ; Z80 bus request line
+Z80Reset:   equ $A11200  ; Z80 reset line
+
+FastPauseZ80: macro
+    move.w  #$100, (Z80BusReq)
+    endm
+    
+ResumeZ80: macro
+    move.w  #$000, (Z80BusReq)
+    endm		
+		
+	FastPauseZ80
+	move.b  #$60, (IoCtrl1)
+	move.b  #$60, (IoData1)
+	ResumeZ80
+    end asm 
+    
+    SPRITE=addsprite(1,1)
+    propsprite SPRITE,1,1
+    
+    
+MAIN:
+	RES = CALL(READMARUCON)
+	DPAD = PEEK(VARPTR&(MARUCONBUFFER)+3)
+	ROW1 = PEEK(VARPTR&(MARUCONBUFFER)+4)
+	ROW2 = PEEK(VARPTR&(MARUCONBUFFER)+5)	
+	ROW3 = PEEK(VARPTR&(MARUCONBUFFER)+6)
+	XH = PEEK(VARPTR&(MARUCONBUFFER)+7)
+	XL = PEEK(VARPTR&(MARUCONBUFFER)+8)
+	YH = PEEK(VARPTR&(MARUCONBUFFER)+9)
+	YL = PEEK(VARPTR&(MARUCONBUFFER)+10)
+	
+	X = (XH << 4) + XL
+	Y = (YH << 4) + YL
+	
+	TIME = TIME + 1	
+	SLEEP 0,TVBLANK
+	CLS
+	PRINT "=SATURN 3D PAD TEST="
+	PRINT ""
+	PRINT "RC:",RES
+	PRINT "DPAD:",RIGHT$(BIN$(DPAD),4)
+	PRINT "ROW1:",RIGHT$(BIN$(ROW1),4)
+	PRINT "ROW2:",RIGHT$(BIN$(ROW2),4)
+	PRINT "ROW3:",RIGHT$(BIN$(ROW3),4)
+	PRINT "X:",X
+	PRINT "Y:",Y
+	MOVESPRITE SPRITE,X+123,Y+123
+	
+	GOTO MAIN
+	
+	asm
+; Reads a macuron packet
+; d0.w = 0 on success
+;       -1 on failure
+
+ReadMarucon:
+    ; I/O data port to read from
+    ; Use IoData2 for player 2
+    lea     (IoData1), a0
+    
+    ; Buffer to store the nibbles
+    ; (we use up one byte per nibble)
+    lea     (__INTEGER_MaruconBuffer), a1
+    
+    ; Look-up table, see below
+    lea     (@Table), a2
+    
+    ; Keep Z80 out of the 68000 bus
+    FastPauseZ80
+    
+    ; Now loop through all nibbles
+    ; (the -1 is because of DBF)
+    moveq   #16-1, d0
+@Loop:
+    
+    ; Tell macuron to send next nibble
+    ; and wait for it to be ready if
+    ; it takes too long we bail out
+    move.b  (a2)+, (a0)
+    move.w  #$FF, d7
+@Wait:
+    moveq   #$10, d6    ; Mask out bit 4 and
+    and.b   (a0), d6    ; check if it matches
+    cmp.b   (a2), d6    ; what we want
+    beq.s   @GotIt
+    
+    dbf     d7, @Wait   ; Keep waiting if not,
+    bra     @Error      ; or throw error if we
+                        ; waited way too long
+    
+    ; Got the nibble, store it into a
+    ; buffer and move onto the next one
+@GotIt:
+    moveq   #$0F, d6    ; Mask out the nibble
+    and.b   (a0), d6    ; and store it into
+    move.b  d6, (a1)+   ; the buffer
+    
+    lea     1(a2), a2   ; Advance look-up table
+    dbf     d0, @Loop   ; Keep looping
+    
+    move.b  #$60, (a0) ; Leave macuron alone
+    ResumeZ80           ; Let Z80 continue
+    moveq   #0, d0      ; Success!
+    rts                 ; End of subroutine
+    
+@Error:
+    move.b  #$60, (a0)  ; Reset macuron just in case
+    ResumeZ80           ; Let Z80 continue
+    moveq   #-1, d0     ; Failure...
+    rts                 ; End of subroutine
+
+; Look-up table used in the loop above
+; 1st byte is what to write, 2nd byte is
+; what to wait for (in bit 4)
+@Table:
+    dc.b    $20,$10   ; 1st nibble
+    dc.b    $00,$00   ; 2nd nibble
+    dc.b    $20,$10   ; 3rd nibble
+    dc.b    $00,$00   ; 4th nibble
+    dc.b    $20,$10   ; 5th nibble
+    dc.b    $00,$00   ; 6th nibble
+    dc.b    $20,$10   ; 7th nibble
+    dc.b    $00,$00   ; 8th nibble
+    dc.b    $20,$10   ; 9th nibble
+    dc.b    $00,$00   ; And nibble
+    dc.b    $20,$10   ; Brd nibble
+    dc.b    $00,$00   ; Cth nibble
+    dc.b    $20,$10   ; Dth nibble
+    dc.b    $00,$00   ; Eth nibble
+    dc.b    $20,$10   ; Fth nibble
+	end asm
